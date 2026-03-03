@@ -31,6 +31,10 @@ on:
         description: "自定义版本名 (可选)"
         required: false
         type: string
+      build_time:
+        description: "自定义构建时间 (可选)"
+        required: false
+        type: string
       use_zram:
         description: "启用 ZRAM 增强算法"
         required: true
@@ -65,6 +69,9 @@ on:
         required: true
         type: string
       version:
+        required: false
+        type: string
+      build_time:
         required: false
         type: string
       use_zram:
@@ -121,6 +128,7 @@ jobs:
       ksu_variant: ${{ inputs.kernelsu_variant }}
       ksu_branch: ${{ inputs.kernelsu_branch }}
       version: ${{ inputs.version || '' }}
+      build_time: ${{ inputs.build_time || '' }}
       use_zram: ${{ inputs.use_zram }}
       use_bbg: ${{ inputs.use_bbg }}
       use_kpm: ${{ inputs.use_kpm }}
