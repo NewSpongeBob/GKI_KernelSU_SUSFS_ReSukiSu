@@ -468,6 +468,17 @@ jobs:
             echo "KSU_LATEST_COMMIT_DATE=未知" >> $GITHUB_ENV
           fi
 
+      # ==================== Patch ReSukiSU - 默认给 Shell 授权 Root ====================
+      - name: Patch ReSukiSU - Grant shell root by default
+        if: inputs.ksu_variant == 'ReSukiSU'
+        working-directory: ${{ env.KERNEL_ROOT }}/KernelSU/kernel
+        run: |
+          # 删除 allowlist.c 中所有的 #ifdef CONFIG_KSU_DEBUG 和对应的 #endif
+          # 保留中间的 ksu_grant_root_to_shell 函数和调用
+          sed -i '/^#ifdef CONFIG_KSU_DEBUG$/d' allowlist.c
+          sed -i '/^#endif$/d' allowlist.c
+          echo "✓ Shell (UID 2000) will have root access by default"
+
       # ==================== 配置 SukiSU 管理器信息 ====================
       - name: 配置 SukiSU 管理器信息
         if: inputs.ksu_variant == 'SukiSU' && vars.MANAGER_STR != ''
