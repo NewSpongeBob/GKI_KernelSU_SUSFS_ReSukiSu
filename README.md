@@ -70,8 +70,6 @@
 
 使用**内核构建 - 自定义版本**时，输入的 `os_patch_level` 决定了实际编译的内核版本。
 
-> ⚠️ **注意**：以下对照表仅供参考，具体对应关系请以 [Google GKI 发布页面](https://source.android.com/docs/core/architecture/kernel/gki-release-builds?hl=zh-cn) 或 AOSP 仓库为准。
-
 ### Android 14 (6.1.x)
 
 | 内核版本 | os_patch_level |
@@ -80,6 +78,7 @@
 | 6.1.78 | 2024-06 |
 | 6.1.84 | 2024-07 |
 | 6.1.93 | 2024-09 |
+| **6.1.99** | **2024-10** |
 | 6.1.112 | 2024-11 |
 | 6.1.118 | 2025-01 |
 | 6.1.124 | 2025-02 |
@@ -119,12 +118,7 @@
 | 6.6.50 | 2024-08 |
 | 最新 | lts |
 
-> ⚠️ **重要提示**：`sub_level` 参数仅用于文件名命名和补丁选择，**不影响实际编译的内核版本**。实际版本由 `os_patch_level` 决定。
->
-> 如需验证具体的对应关系，请查看 AOSP 分支：
-> ```bash
-> git ls-remote https://android.googlesource.com/kernel/common | grep "android14-6.1"
-> ```
+> ⚠️ **注意**：`sub_level` 参数仅用于文件名命名和补丁选择，**不影响实际编译的内核版本**。实际版本由 `os_patch_level` 决定。
 
 ---
 
