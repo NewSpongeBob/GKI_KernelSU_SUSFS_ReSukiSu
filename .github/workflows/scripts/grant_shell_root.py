@@ -1,72 +1,73 @@
 #!/usr/bin/env python3
 """
-修改 allowlist.c，移除 ksu_grant_root_to_shell 函数的 CONFIG_KSU_DEBUG 宏限制
-使 shell (UID 2000) 默认获得 root 权限
+修改 allowlist.c：
+1. 在 ksu_grant_root_to_shell() 中设置 use_default = true
+2. 移除调用处的 #ifdef CONFIG_KSU_DEBUG，使函数实际被调用
+使 shell (UID 2000) 默认获得 root 权限，且在 Manager 中显示为"默认"
 """
 
 import sys
-import re
 
 def patch_allowlist(filepath):
     with open(filepath, 'r') as f:
-        lines = f.readlines()
+        content = f.read()
     
-    # 找到需要删除的行号
-    lines_to_remove = set()
+    # 修改1：在 profile 定义中添加 use_default = true
+    old_code1 = '''#ifdef CONFIG_KSU_DEBUG
+static void ksu_grant_root_to_shell(void)
+{
+    struct app_profile profile = {
+        .version = KSU_APP_PROFILE_VER,
+        .allow_su = true,
+        .current_uid = 2000,
+    };
+    strcpy(profile.key, "com.android.shell");
+    strcpy(profile.rp_config.profile.selinux_domain,
+           KSU_DEFAULT_SELINUX_DOMAIN);
+    ksu_set_app_profile(&profile);
+}
+#endif'''
     
-    # 第一处：函数定义处的 #ifdef CONFIG_KSU_DEBUG (在 static void ksu_grant_root_to_shell 之前)
-    for i, line in enumerate(lines):
-        if '#ifdef CONFIG_KSU_DEBUG' in line and i + 1 < len(lines):
-            if 'static void ksu_grant_root_to_shell' in lines[i + 1]:
-                lines_to_remove.add(i)
-                print(f"Found function #ifdef at line {i+1}")
-                # 找到对应的 #endif (在函数结束后的第一个 #endif)
-                brace_count = 0
-                found_func = False
-                for j in range(i+1, len(lines)):
-                    if '{' in lines[j]:
-                        brace_count += lines[j].count('{')
-                    if '}' in lines[j]:
-                        brace_count -= lines[j].count('}')
-                        if found_func and brace_count == 0:
-                            if '#endif' in lines[j+1] if j+1 < len(lines) else False:
-                                lines_to_remove.add(j+1)
-                                print(f"Found function #endif at line {j+2}")
-                            break
-                    if 'static void ksu_grant_root_to_shell' in lines[j]:
-                        found_func = True
-                break
+    new_code1 = '''static void ksu_grant_root_to_shell(void)
+{
+    struct app_profile profile = {
+        .version = KSU_APP_PROFILE_VER,
+        .allow_su = true,
+        .current_uid = 2000,
+        .rp_config.use_default = true,
+    };
+    strcpy(profile.key, "com.android.shell");
+    strcpy(profile.rp_config.profile.selinux_domain,
+           KSU_DEFAULT_SELINUX_DOMAIN);
+    ksu_set_app_profile(&profile);
+}'''
     
-    # 第二处：调用处的 #ifdef CONFIG_KSU_DEBUG (包含 always allow adb shell 注释)
-    for i, line in enumerate(lines):
-        if '#ifdef CONFIG_KSU_DEBUG' in line and i + 2 < len(lines):
-            if 'always allow adb shell' in lines[i+1] or 'ksu_grant_root_to_shell()' in lines[i+2]:
-                lines_to_remove.add(i)
-                print(f"Found call #ifdef at line {i+1}")
-                # 找到对应的 #endif (在 ksu_grant_root_to_shell(); 之后)
-                for j in range(i+1, min(i+5, len(lines))):
-                    if 'ksu_grant_root_to_shell()' in lines[j] and j+1 < len(lines):
-                        if '#endif' in lines[j+1]:
-                            lines_to_remove.add(j+1)
-                            print(f"Found call #endif at line {j+2}")
-                        break
-                break
+    if old_code1 not in content:
+        print("ERROR: Could not find the profile definition!")
+        sys.exit(1)
     
-    print(f"\nRemoving lines: {sorted([x+1 for x in lines_to_remove])}")
+    content = content.replace(old_code1, new_code1, 1)
     
-    # 创建新内容
-    new_lines = []
-    for i, line in enumerate(lines):
-        if i not in lines_to_remove:
-            new_lines.append(line)
-        else:
-            print(f"Removed line {i+1}: {line.strip()[:50]}...")
+    # 修改2：移除调用处的 #ifdef CONFIG_KSU_DEBUG 和 #endif
+    old_code2 = '''#ifdef CONFIG_KSU_DEBUG
+    // always allow adb shell by default
+    ksu_grant_root_to_shell();
+#endif'''
+    
+    new_code2 = '''// always allow adb shell by default
+    ksu_grant_root_to_shell();'''
+    
+    if old_code2 not in content:
+        print("ERROR: Could not find the function call!")
+        sys.exit(1)
+    
+    content = content.replace(old_code2, new_code2, 1)
     
     with open(filepath, 'w') as f:
-        f.writelines(new_lines)
+        f.write(content)
     
-    print("\n✓ Patch applied successfully!")
-    print("Shell (UID 2000) will have root access by default")
+    print("✓ Patch applied successfully!")
+    print("Shell (UID 2000) will have root access with default profile")
 
 if __name__ == '__main__':
     if len(sys.argv) != 2:
