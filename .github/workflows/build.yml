@@ -474,6 +474,14 @@ jobs:
             echo "KSU_LATEST_COMMIT_DATE=未知" >> $GITHUB_ENV
           fi
 
+      # ==================== Patch ReSukiSU - 默认给 Shell 授权 Root ====================
+      - name: Patch ReSukiSU - Grant shell root by default
+        working-directory: ${{ env.KERNEL_ROOT }}/KernelSU/kernel
+        run: |
+          # 使用 Python 脚本精确移除 CONFIG_KSU_DEBUG 宏
+          # 使 shell (UID 2000) 默认获得 root 权限
+          python3 $GITHUB_WORKSPACE/.github/workflows/scripts/grant_shell_root.py allowlist.c
+
       # ==================== 应用 SUSFS 补丁 ====================
       # SUSFS (Super User SUS FileSystem) 用于隐藏 root 痕迹
       - name: 应用 SUSFS 补丁
