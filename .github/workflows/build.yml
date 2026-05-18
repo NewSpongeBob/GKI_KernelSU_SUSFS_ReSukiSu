@@ -61,6 +61,10 @@ on:
         required: true
         type: boolean
         default: true
+      use_kpm:
+        required: false
+        type: boolean
+        default: true
       use_rekernel:
         required: false
         type: boolean
@@ -117,6 +121,7 @@ jobs:
           echo "SUSFS 状态    : ${{ inputs.enable_susfs }}"
           echo "ZRAM 增强     : ${{ inputs.use_zram }}"
           echo "BBG 补丁      : ${{ inputs.use_bbg }}"
+          echo "KPM 功能      : ${{ inputs.use_kpm }}"
           echo "Re-Kernel     : ${{ inputs.use_rekernel }}"
           echo "CVE-2026-43499: ${{ inputs.cve_2026_43499_patch }}"
           echo "Droidspaces   : ${{ inputs.droidspaces }}"
@@ -1191,14 +1196,12 @@ jobs:
           CONFIG_TMPFS_POSIX_ACL=y
           EOF
 
-          if [ "${{ inputs.ksu_variant }}" == "SukiSU" ] || [ "${{ inputs.ksu_variant }}" == "ReSukiSU" ] || [ "${{ inputs.ksu_variant }}" == "Next" ]; then
-            if [[ "${{ inputs.use_kpm }}" == enabled* ]] || [[ "${{ inputs.use_kpm }}" == patched* ]]; then
-              if ! grep -RqsE '^[[:space:]]*config[[:space:]]+KPM([[:space:]]|$)' common KernelSU 2>/dev/null; then
-                echo "错误: 已请求启用 KPM，但当前 KernelSU 代码未声明 CONFIG_KPM" >&2
-                exit 1
-              fi
-              echo "CONFIG_KPM=y" >> "$DEFCONFIG"
+          if [ "${{ inputs.use_kpm }}" == "true" ]; then
+            if ! grep -RqsE '^[[:space:]]*config[[:space:]]+KPM([[:space:]]|$)' common KernelSU 2>/dev/null; then
+              echo "错误: 已请求启用 KPM，但当前 KernelSU 代码未声明 CONFIG_KPM" >&2
+              exit 1
             fi
+            echo "CONFIG_KPM=y" >> "$DEFCONFIG"
           fi
 
           CURRENT_SUB="${{ inputs.sub_level }}"
@@ -1396,6 +1399,34 @@ jobs:
             echo "当前 KSU 最新提交日期: ${KSU_LATEST_COMMIT_DATE}"
             echo "当前 SUSFS 最新提交日期: ${SUSFS_LATEST_COMMIT_DATE}"
             echo "如果日期不同或相差过远则补丁失效、编译失败"
+
+      # ==================== KPM 补丁 ====================
+      # 为 ReSukiSU 应用 KPM (Kernel Patch Module) 补丁
+      - name: 应用 KPM 补丁
+        if: inputs.use_kpm
+        run: |
+          case "${{ inputs.android_version }}" in
+            "android12"|"android13")
+              if [ "${{ inputs.kernel_version }}" != "6.6" ]; then
+                TARGET_PATH="$KERNEL_ROOT/out/${{ inputs.android_version }}-${{ inputs.kernel_version }}/dist"
+              fi
+              ;;
+            "android14"|"android15"|"android16")
+              TARGET_PATH="$KERNEL_ROOT/bazel-bin/common/kernel_aarch64/"
+              ;;
+          esac
+
+          if [ -z "$TARGET_PATH" ] || [ ! -d "$TARGET_PATH" ]; then
+            echo "跳过 KPM patch: TARGET_PATH 无效或不存在"
+            exit 0
+          fi
+
+          cp -r $SUKISU_PATCHES/kpm/patch_linux "$TARGET_PATH/patch"
+          cd "$TARGET_PATH"
+          chmod 777 patch
+          ./patch
+          rm -rf Image
+          mv oImage Image
 
       # ==================== 准备内核 Image ====================
       # 复制编译产物到工作目录，供 AnyKernel3 打包使用
