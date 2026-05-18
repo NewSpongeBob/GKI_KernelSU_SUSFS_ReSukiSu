@@ -1,77 +1,51 @@
 #!/usr/bin/env python3
 """
-修改 allowlist.c：
-1. 在 ksu_grant_root_to_shell() 中设置 use_default = true
-2. 移除调用处的 #ifdef CONFIG_KSU_DEBUG，使函数实际被调用
-使 shell (UID 2000) 默认获得 root 权限，且在 Manager 中显示为"默认"
+修改 init.c：
+将 allow_shell 的默认值从 false 改为 true（移除 CONFIG_KSU_DEBUG 条件），
+使 shell (UID 2000) 在非 DEBUG 模式下也默认获得 root 权限。
+
+ReSukiSU 新版本中 allow_shell 变量控制 shell root 授权，
+定义在 kernel/core/init.c，原始代码：
+    #ifdef CONFIG_KSU_DEBUG
+    bool allow_shell = true;
+    #else
+    bool allow_shell = false;
+    #endif
 """
 
 import sys
 
-def patch_allowlist(filepath):
+def patch_init(filepath):
     with open(filepath, 'r') as f:
         content = f.read()
-    
-    # 修改1：在 profile 定义中添加 use_default = true
-    old_code1 = '''#ifdef CONFIG_KSU_DEBUG
-static void ksu_grant_root_to_shell(void)
-{
-    struct app_profile profile = {
-        .version = KSU_APP_PROFILE_VER,
-        .allow_su = true,
-        .current_uid = 2000,
-    };
-    strcpy(profile.key, "com.android.shell");
-    strcpy(profile.rp_config.profile.selinux_domain,
-           KSU_DEFAULT_SELINUX_DOMAIN);
-    ksu_set_app_profile(&profile);
-}
-#endif'''
-    
-    new_code1 = '''static void ksu_grant_root_to_shell(void)
-{
-    struct app_profile profile = {
-        .version = KSU_APP_PROFILE_VER,
-        .allow_su = true,
-        .current_uid = 2000,
-        .rp_config.use_default = true,
-    };
-    strcpy(profile.key, "com.android.shell");
-    strcpy(profile.rp_config.profile.selinux_domain,
-           KSU_DEFAULT_SELINUX_DOMAIN);
-    ksu_set_app_profile(&profile);
-}'''
-    
-    if old_code1 not in content:
-        print("ERROR: Could not find the profile definition!")
+
+    old_code = (
+        '#ifdef CONFIG_KSU_DEBUG\n'
+        'bool allow_shell = true;\n'
+        '#else\n'
+        'bool allow_shell = false;\n'
+        '#endif'
+    )
+
+    new_code = 'bool allow_shell = true;'
+
+    if old_code not in content:
+        print("ERROR: Could not find allow_shell definition in init.c!")
+        print("Expected pattern:")
+        print(old_code)
         sys.exit(1)
-    
-    content = content.replace(old_code1, new_code1, 1)
-    
-    # 修改2：移除调用处的 #ifdef CONFIG_KSU_DEBUG 和 #endif
-    old_code2 = '''#ifdef CONFIG_KSU_DEBUG
-    // always allow adb shell by default
-    ksu_grant_root_to_shell();
-#endif'''
-    
-    new_code2 = '''// always allow adb shell by default
-    ksu_grant_root_to_shell();'''
-    
-    if old_code2 not in content:
-        print("ERROR: Could not find the function call!")
-        sys.exit(1)
-    
-    content = content.replace(old_code2, new_code2, 1)
-    
+
+    content = content.replace(old_code, new_code, 1)
+
     with open(filepath, 'w') as f:
         f.write(content)
-    
+
     print("✓ Patch applied successfully!")
-    print("Shell (UID 2000) will have root access with default profile")
+    print("Shell (UID 2000) will have root access by default (allow_shell = true)")
 
 if __name__ == '__main__':
     if len(sys.argv) != 2:
-        print(f"Usage: {sys.argv[0]} <allowlist.c-path>")
+        print(f"Usage: {sys.argv[0]} <init.c-path>")
         sys.exit(1)
-    
-    patch_allowlist(sys.argv[1])
+
+    patch_init(sys.argv[1])
