@@ -109,7 +109,7 @@ jobs:
             fi
 
             BUILD_ID=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-              "https://api.github.com/repos/$REPO/actions/workflows/$FILENAME/runs?status=success" |
+              "https://api.github.com/repos/$REPO/actions/workflows/$FILENAME/runs?status=success&branch=main" |
               jq -r '.workflow_runs['"$NUMBER"'].id')
 
             echo "找到构建 ID: $BUILD_ID"
