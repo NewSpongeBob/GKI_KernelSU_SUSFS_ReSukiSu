@@ -13,7 +13,7 @@ dev          ← 原作者代码 + 我们的自定义功能，线性叠加在最
 
 不要用 merge，永远用 rebase/cherry-pick，保持自定义提交干净地叠在原作者代码之上。
 
-## 自定义功能清单（4 个提交）
+## 自定义功能清单
 
 从下到上的顺序：
 
@@ -30,9 +30,14 @@ dev          ← 原作者代码 + 我们的自定义功能，线性叠加在最
 
 4. **feat: 加回 KPM (Kernel Patch Module) 功能支持**
    - `build.yml` 中添加 `use_kpm` 输入参数（boolean, 默认 true）
-   - 添加 KPM 配置写入（`CONFIG_KPM=y`），含 Kconfig 存在性检查
+   - 添加 KPM 配置写入（`CONFIG_KPM=y`），仅在 Kconfig 中声明了 KPM 时才写入，否则跳过（依赖后编译补丁）
    - 添加编译后 KPM 二进制补丁步骤（`应用 KPM 补丁`）
    - 所有 caller workflow（main.yml, kernel-*.yml, kernel-custom.yml）都传递 `use_kpm` 参数
+
+5. **feat: 恢复 boot.img 构建步骤**
+   - 取消注释 Android 12 和 Android 13+ 的 boot.img 构建步骤
+   - 构建产物包含 boot.img、boot-gz.img、boot-lz4.img
+   - 上传产物中启用 `*.img` 路径
 
 ## 同步上游的操作步骤
 
@@ -82,6 +87,10 @@ grep "branch=main" .github/workflows/get-manager.yml
 
 # caller workflows 传递 use_kpm
 grep "use_kpm" .github/workflows/main.yml
+
+# boot.img 构建步骤存在（未被注释）
+grep "构建 Boot 镜像" .github/workflows/build.yml
+grep '*.img' .github/workflows/build.yml
 
 # YAML 语法正确
 python3 -c "import yaml; yaml.safe_load(open('.github/workflows/build.yml')); print('OK')"
