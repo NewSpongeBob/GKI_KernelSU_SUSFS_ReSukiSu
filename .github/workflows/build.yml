@@ -1197,11 +1197,12 @@ jobs:
           EOF
 
           if [ "${{ inputs.use_kpm }}" == "true" ]; then
-            if ! grep -RqsE '^[[:space:]]*config[[:space:]]+KPM([[:space:]]|$)' common KernelSU 2>/dev/null; then
-              echo "错误: 已请求启用 KPM，但当前 KernelSU 代码未声明 CONFIG_KPM" >&2
-              exit 1
+            if grep -RqsE '^[[:space:]]*config[[:space:]]+KPM([[:space:]]|$)' common KernelSU 2>/dev/null; then
+              echo "CONFIG_KPM=y" >> "$DEFCONFIG"
+              echo "KPM: 已在 defconfig 中启用 CONFIG_KPM"
+            else
+              echo "KPM: Kconfig 中未声明 CONFIG_KPM，跳过 defconfig，将通过后编译补丁启用"
             fi
-            echo "CONFIG_KPM=y" >> "$DEFCONFIG"
           fi
 
           CURRENT_SUB="${{ inputs.sub_level }}"
